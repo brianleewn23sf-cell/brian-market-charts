@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brian's Market Charts – Bollinger Bands</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+body{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;background:#0f1420;color:#e8ecf3}
+header{padding:12px 14px;background:#151c2c;border-bottom:1px solid #26314a;position:sticky;top:0;z-index:5}
+h1{font-size:18px;margin:0 0 6px}
+#meta{font-size:12px;color:#9aa6bd}
+#tabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#tabs button{background:#222c42;color:#e8ecf3;border:1px solid #33405e;border-radius:16px;padding:6px 11px;font-size:13px;cursor:pointer}
+#tabs button.on{background:#d4a017;color:#111;border-color:#d4a017;font-weight:600}
+main{padding:10px 12px;max-width:1200px;margin:auto}
+.card{background:#151c2c;border:1px solid #26314a;border-radius:10px;margin:0 0 14px;padding:10px}
+.card h2{font-size:15px;margin:0 0 4px}
+.info{font-size:12.5px;color:#c8d0df;line-height:1.5}
+.info b{color:#fff}.delay{color:#f0b84a;font-size:12px;margin-top:4px}
+.chart{height:380px}.gap{color:#ff7b7b;font-size:13px}
+footer{font-size:11.5px;color:#7f8aa3;padding:10px 14px 24px;text-align:center}
+</style></head><body>
+<header><h1>Brian's Market Charts · Bollinger Bands (20, ±1/2/3 SD)</h1>
+<div id="meta">Loading…</div><div id="tabs"></div></header>
+<main id="main"></main>
+<footer>Free Yahoo Finance data, delayed (not live licensed data). Data rebuilds roughly every 5–15 minutes; this page re-checks every 60 seconds. Mechanical band levels only.</footer>
+<script>
+const TFN={"10m":"10-minute","1h":"1-hour","1d":"Daily"};
+let DATA=null, cur=location.hash.slice(1)||"nasdaq";
+const C={sma:"#ffffff",b1:"#4fc3f7",b2:"#d4a017",b3:"#ff5252"};
+function line(t,y,name,color,dash,width,show){return{x:t,y:y,name:name,mode:"lines",line:{color:color,dash:dash,width:width},hoverinfo:"y+name",showlegend:show}}
+function tabs(){const el=document.getElementById("tabs");el.innerHTML="";DATA.indices.forEach(i=>{const b=document.createElement("button");b.textContent=i.name;if(i.slug===cur)b.className="on";b.onclick=()=>{cur=i.slug;location.hash=cur;render()};el.appendChild(b)})}
+function f(n){return n==null?"–":n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function render(){
+ if(!DATA)return; tabs();
+ const ix=DATA.indices.find(i=>i.slug===cur)||DATA.indices[0]; cur=ix.slug;
+ const m=document.getElementById("main"); m.innerHTML="";
+ ["10m","1h","1d"].forEach(tf=>{
+  const card=document.createElement("div");card.className="card";m.appendChild(card);
+  const d=ix.tf[tf];
+  if(!d){card.innerHTML=`<h2>${ix.name} · ${TFN[tf]}</h2><div class="gap">Data unavailable for this timeframe right now.</div>`;return}
+  const L=d.last;
+  card.innerHTML=`<h2>${ix.name} (${ix.symbol}) · ${TFN[tf]}</h2>
+  <div class="info">Last <b>${f(L.price)}</b> at ${L.time}${tf==="1d"?"":" London"} · <b>${L.status}</b><br>
+  SMA20 ${f(L.sma)} · +1 SD ${f(L.u1)} · +2 SD ${f(L.u2)} · +3 SD ${f(L.u3)} · −1 SD ${f(L.l1)} · −2 SD ${f(L.l2)} · −3 SD ${f(L.l3)}</div>
+  <div class="delay">⏱ Delayed data (${ix.delay}) from Yahoo Finance, not live.</div><div class="chart"></div>`;
+  const t=d.t, tr=[
+   line(t,d.l3,"−3 SD",C.b3,"dot",1,false), line(t,d.u3,"±3 SD",C.b3,"dot",1,true),
+   line(t,d.l2,"−2 SD",C.b2,"dash",1.2,false), line(t,d.u2,"±2 SD",C.b2,"dash",1.2,true),
+   line(t,d.l1,"−1 SD",C.b1,"dot",1,false), line(t,d.u1,"±1 SD",C.b1,"dot",1,true),
+   line(t,d.sma,"SMA20",C.sma,"solid",1.3,true),
+   {x:t,open:d.o,high:d.h,low:d.l,close:d.c,type:"candlestick",name:"Price",increasing:{line:{color:"#26a69a"}},decreasing:{line:{color:"#ef5350"}},showlegend:true}];
+  Plotly.newPlot(card.querySelector(".chart"),tr,{paper_bgcolor:"#151c2c",plot_bgcolor:"#151c2c",font:{color:"#c8d0df",size:11},
+   margin:{l:55,r:10,t:10,b:30},legend:{orientation:"h",y:1.08,font:{size:10}},
+   xaxis:{type:"category",rangeslider:{visible:false},nticks:6,gridcolor:"#222c42"},yaxis:{gridcolor:"#222c42"}},
+   {responsive:true,displayModeBar:false});
+ });
+}
+async function load(){
+ try{const r=await fetch("data.json?ts="+Date.now(),{cache:"no-store"});DATA=await r.json();
+  document.getElementById("meta").textContent=`Data built ${DATA.generated_london} London time · page checked ${new Date().toLocaleTimeString("en-GB",{timeZone:"Europe/London"})} · free delayed data`;
+  render();}catch(e){document.getElementById("meta").textContent="Could not load data right now; retrying in 60 s."}
+}
+load(); setInterval(load,60000);
+</script></body></html>
